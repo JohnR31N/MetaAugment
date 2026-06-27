@@ -99,10 +99,12 @@ def _create_states(
         dummy_features,
         jnp.ones((1, NUM_OPS * 2), dtype=jnp.float32),
     )["params"]
-    meta_params = {
-        "policy": policy_params,
-        "inner_log_lr": jnp.asarray(_softplus_inverse(config.optim.inner_learning_rate), dtype=jnp.float32),
-    }
+    meta_params = {"policy": policy_params}
+    if config.optim.learn_inner_learning_rate:
+        meta_params["inner_log_lr"] = jnp.asarray(
+            _softplus_inverse(config.optim.inner_learning_rate),
+            dtype=jnp.float32,
+        )
     policy_state = PolicyTrainState.create(
         apply_fn=policy.apply,
         params=meta_params,
@@ -178,7 +180,10 @@ def _create_train_step(
         )
 
         def policy_loss_fn(meta_params):
-            inner_lr = jax.nn.softplus(meta_params["inner_log_lr"])
+            if config.optim.learn_inner_learning_rate:
+                inner_lr = jax.nn.softplus(meta_params["inner_log_lr"])
+            else:
+                inner_lr = jnp.asarray(config.optim.inner_learning_rate, dtype=jnp.float32)
 
             def inner_task_loss(params):
                 loss, _ = weighted_aug_loss(
@@ -249,7 +254,12 @@ def _create_train_step(
             "train_top1": jax.lax.pmean(topk_accuracy(logits, aug_labels, k=1), axis_name),
             "train_top5": jax.lax.pmean(topk_accuracy(logits, aug_labels, k=5), axis_name),
             "mean_policy_weight": jax.lax.pmean(jnp.mean(raw_weights), axis_name),
-            "inner_lr": jax.lax.pmean(jax.nn.softplus(new_policy_state.params["inner_log_lr"]), axis_name),
+            "inner_lr": jax.lax.pmean(
+                jax.nn.softplus(new_policy_state.params["inner_log_lr"])
+                if config.optim.learn_inner_learning_rate
+                else jnp.asarray(config.optim.inner_learning_rate, dtype=jnp.float32),
+                axis_name,
+            ),
         }
         return new_task_state, new_policy_state, metrics, pair_sums, pair_counts
 

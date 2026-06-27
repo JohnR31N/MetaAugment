@@ -20,7 +20,8 @@ optim:
   epochs: 200
   task_learning_rate: 0.1
   policy_learning_rate: 0.001
-  inner_learning_rate: 0.1
+  inner_learning_rate: 0.01
+  learn_inner_learning_rate: false
   momentum: 0.9
   weight_decay: 0.0005
   label_smoothing: 0.0

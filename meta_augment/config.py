@@ -39,7 +39,8 @@ class OptimConfig:
     epochs: int = 600
     task_learning_rate: float = 0.1
     policy_learning_rate: float = 1.0e-3
-    inner_learning_rate: float = 0.1
+    inner_learning_rate: float = 1.0e-2
+    learn_inner_learning_rate: bool = False
     momentum: float = 0.9
     weight_decay: float = 5.0e-4
     label_smoothing: float = 0.0

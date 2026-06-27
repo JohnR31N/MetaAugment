@@ -24,7 +24,9 @@ for Google Cloud TPU VMs via JAX/XLA.
 The paper trains CIFAR-10 WRN-28-10 for 600 epochs and CIFAR-100 WRN-28-10 for
 200 epochs with SGD momentum 0.9, weight decay 5e-4, batch size 128, cosine
 task learning rate decay from 0.1, fixed policy learning rate 1e-3, and epsilon
-0.1. Those defaults are in `configs/`.
+0.1. The one-step meta inner learning rate is a fixed hyperparameter in this
+implementation and defaults to 0.01 for stability. Those defaults are in
+`configs/`.
 
 ## Local setup
 
