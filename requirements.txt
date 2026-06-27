@@ -1,0 +1,7 @@
+jax[cpu]>=0.4.35,<0.7
+orbax-checkpoint==0.10.3
+flax==0.10.7
+optax==0.2.8
+numpy>=1.26
+PyYAML>=6.0.1
+tqdm>=4.66

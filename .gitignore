@@ -206,6 +206,12 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
+# MetaAugment local artifacts
+data/
+runs/
+*.pkl
+*.npy
+
 # PyPI configuration file
 .pypirc
 

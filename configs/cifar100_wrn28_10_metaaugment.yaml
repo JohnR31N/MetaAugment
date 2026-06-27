@@ -1,0 +1,36 @@
+data:
+  dataset: cifar100
+  data_dir: data
+  val_size: 1000
+  batch_size: 128
+  eval_batch_size: 256
+  seed: 0
+model:
+  depth: 28
+  width: 10
+  dropout_rate: 0.0
+augment:
+  cutout_size: 16
+  epsilon: 0.1
+  num_transforms_per_sample: 1
+  sampler_update_epochs: 1
+  sampler_history_epochs: 20
+  translate_const: 10.0
+optim:
+  epochs: 200
+  task_learning_rate: 0.1
+  policy_learning_rate: 0.001
+  inner_learning_rate: 0.1
+  momentum: 0.9
+  weight_decay: 0.0005
+  label_smoothing: 0.0
+  warmup_epochs: 0
+  max_grad_norm: 0.0
+system:
+  workdir: runs/cifar100_wrn28_10_metaaugment
+  seed: 0
+  use_pmap: true
+  init_distributed: false
+  log_every: 50
+  eval_every_epochs: 1
+  save_every_epochs: 10
