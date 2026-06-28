@@ -1,0 +1,41 @@
+competitor:
+  name: metaaugment
+data:
+  dataset: synthetic
+  data_dir: data
+  val_size: 32
+  batch_size: 8
+  eval_batch_size: 8
+  seed: 0
+model:
+  architecture: preact_resnet18
+  depth: 18
+  width: 1
+  dropout_rate: 0.0
+augment:
+  cutout_size: 8
+  epsilon: 0.1
+  num_transforms_per_sample: 1
+  sampler_update_epochs: 1
+  sampler_history_epochs: 1
+  translate_const: 4.0
+optim:
+  epochs: 1
+  task_learning_rate: 0.01
+  policy_learning_rate: 0.001
+  inner_learning_rate: 0.01
+  learn_inner_learning_rate: false
+  momentum: 0.9
+  weight_decay: 0.0005
+  label_smoothing: 0.0
+  warmup_epochs: 0
+  max_grad_norm: 0.0
+system:
+  workdir: runs/smoke_preact_resnet18
+  seed: 0
+  use_pmap: true
+  init_distributed: false
+  log_every: 1
+  eval_every_epochs: 1
+  save_every_epochs: 1
+  keep_checkpoints: 1

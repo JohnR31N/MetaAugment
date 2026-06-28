@@ -125,3 +125,61 @@ class PreActResNet(nn.Module):
         if return_features:
             return logits, features
         return logits
+
+
+class PreActResNet18(nn.Module):
+    """CIFAR-friendly PreAct ResNet-18.
+
+    This follows the common CIFAR adaptation of ResNet-18: a 3x3 stem, no
+    max-pooling, four stages with [2, 2, 2, 2] basic blocks, and global average
+    pooling before the classifier.
+    """
+
+    num_classes: int
+    width: int = 1
+    dropout_rate: float = 0.0
+    axis_name: str | None = None
+
+    @nn.compact
+    def __call__(
+        self,
+        x: jnp.ndarray,
+        *,
+        train: bool,
+        return_features: bool = False,
+    ) -> jnp.ndarray | tuple[jnp.ndarray, jnp.ndarray]:
+        base_channels = 64 * self.width
+        x = nn.Conv(
+            base_channels,
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            padding="SAME",
+            use_bias=False,
+            name="stem",
+        )(x)
+
+        channels = (base_channels, base_channels * 2, base_channels * 4, base_channels * 8)
+        strides = (1, 2, 2, 2)
+        for group_id, (stage_channels, stride) in enumerate(zip(channels, strides, strict=True)):
+            for block_id in range(2):
+                x = PreActBasicBlock(
+                    channels=stage_channels,
+                    stride=stride if block_id == 0 else 1,
+                    dropout_rate=self.dropout_rate,
+                    axis_name=self.axis_name,
+                    name=f"group{group_id + 1}_block{block_id + 1}",
+                )(x, train=train)
+
+        x = nn.BatchNorm(
+            use_running_average=not train,
+            momentum=0.9,
+            epsilon=1.0e-5,
+            axis_name=self.axis_name,
+            name="final_bn",
+        )(x)
+        x = nn.relu(x)
+        features = jnp.mean(x, axis=(1, 2))
+        logits = nn.Dense(self.num_classes, name="classifier")(features)
+        if return_features:
+            return logits, features
+        return logits

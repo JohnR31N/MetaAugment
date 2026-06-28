@@ -12,7 +12,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--workdir", type=str, default=None, help="Directory for logs and checkpoints.")
     parser.add_argument("--data-dir", type=str, default=None, help="Directory for CIFAR data.")
     parser.add_argument("--competitor", type=str, default=None, help="Training competitor name.")
-    parser.add_argument("--model-architecture", type=str, default=None, help="wide_resnet or preact_resnet.")
+    parser.add_argument(
+        "--model-architecture",
+        type=str,
+        default=None,
+        help="wide_resnet, preact_resnet, or preact_resnet18.",
+    )
     parser.add_argument("--model-depth", type=int, default=None, help="Override model.depth.")
     parser.add_argument("--model-width", type=int, default=None, help="Override model.width.")
     parser.add_argument("--epochs", type=int, default=None, help="Override optim.epochs.")
@@ -70,6 +75,8 @@ def main() -> None:
             architecture = "wide_resnet"
         if args.model_depth is None:
             depth = 20 if architecture in {"preact_resnet", "preact-resnet", "preact"} else 10
+            if architecture in {"preact_resnet18", "preact-resnet18", "preact18", "preact_resnet_18"}:
+                depth = 18
             config = override_config(config, "model.depth", depth)
         if args.model_width is None:
             config = override_config(config, "model.width", 1)

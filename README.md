@@ -80,6 +80,7 @@ Run the PreAct ResNet smoke test:
 
 ```bash
 python -m meta_augment.cli.train --config configs/smoke_preact_resnet.yaml
+python -m meta_augment.cli.train --config configs/smoke_preact_resnet18.yaml
 ```
 
 Train PreActResNet-110 on CIFAR:
@@ -87,6 +88,13 @@ Train PreActResNet-110 on CIFAR:
 ```bash
 python -m meta_augment.cli.train --config configs/cifar10_preact_resnet110_metaaugment.yaml
 python -m meta_augment.cli.train --config configs/cifar100_preact_resnet110_metaaugment.yaml
+```
+
+Train CIFAR-friendly PreActResNet-18:
+
+```bash
+python -m meta_augment.cli.train --config configs/cifar10_preact_resnet18_metaaugment.yaml
+python -m meta_augment.cli.train --config configs/cifar100_preact_resnet18_metaaugment.yaml
 ```
 
 You can also override the model from the CLI:
