@@ -8,8 +8,8 @@ data:
   eval_batch_size: 8
   seed: 0
 model:
-  architecture: wide_resnet
-  depth: 10
+  architecture: preact_resnet
+  depth: 20
   width: 1
   dropout_rate: 0.0
 augment:
@@ -31,7 +31,7 @@ optim:
   warmup_epochs: 0
   max_grad_norm: 0.0
 system:
-  workdir: runs/smoke
+  workdir: runs/smoke_preact_resnet
   seed: 0
   use_pmap: true
   init_distributed: false

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import flax
+import flax.linen as nn
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -15,7 +16,14 @@ from flax import jax_utils
 from flax.training import train_state
 
 from meta_augment.config import Config, to_dict
-from meta_augment.data.augmentations import NUM_OPS, apply_metaaugment, initial_sampler_probs
+from meta_augment.competitors import CompetitorSpec, get_competitor
+from meta_augment.data.augmentations import (
+    NUM_OPS,
+    apply_metaaugment,
+    cutout,
+    initial_sampler_probs,
+    random_flip_crop,
+)
 from meta_augment.data.loaders.cifar_loader import (
     CyclingBatcher,
     iter_batches,
@@ -24,7 +32,7 @@ from meta_augment.data.loaders.cifar_loader import (
 )
 from meta_augment.data.preprocessors.cifar_preprocessor import normalize_images
 from meta_augment.networks.policy_network import PolicyNetwork
-from meta_augment.networks.task_networks.backbones.wide_resnet_28_10 import WideResNet
+from meta_augment.networks.task_networks.factory import create_task_model
 from meta_augment.training.losses import cross_entropy_loss, normalized_policy_weights
 from meta_augment.training.metrics import topk_accuracy, topk_accuracy_sum
 from meta_augment.training.optimizers import cosine_schedule, sgd_tx
@@ -52,14 +60,12 @@ def _create_states(
     num_classes: int,
     steps_per_epoch: int,
     axis_name: str | None,
-) -> tuple[WideResNet, PolicyNetwork, TaskTrainState, PolicyTrainState]:
+) -> tuple[nn.Module, PolicyNetwork, TaskTrainState, PolicyTrainState]:
     rng = jax.random.PRNGKey(config.system.seed)
     rng_model, rng_policy, rng_dropout = jax.random.split(rng, 3)
-    model = WideResNet(
-        depth=config.model.depth,
-        width=config.model.width,
+    model = create_task_model(
+        config.model,
         num_classes=num_classes,
-        dropout_rate=config.model.dropout_rate,
         axis_name=axis_name,
     )
     variables = model.init(
@@ -119,7 +125,27 @@ def _create_states(
 
 
 def _create_train_step(
-    model: WideResNet,
+    model,
+    policy: PolicyNetwork,
+    config: Config,
+    *,
+    competitor: CompetitorSpec,
+    axis_name: str,
+):
+    if competitor.name == "metaaugment":
+        return _create_metaaugment_train_step(
+            model,
+            policy,
+            config,
+            axis_name=axis_name,
+        )
+    if competitor.name == "baseline":
+        return _create_baseline_train_step(model, config, axis_name=axis_name)
+    raise ValueError(f"Unsupported competitor: {competitor.name}")
+
+
+def _create_metaaugment_train_step(
+    model,
     policy: PolicyNetwork,
     config: Config,
     *,
@@ -266,7 +292,59 @@ def _create_train_step(
     return jax.pmap(step, axis_name=axis_name)
 
 
-def _create_eval_step(model: WideResNet, config: Config, *, axis_name: str):
+def _create_baseline_train_step(model, config: Config, *, axis_name: str):
+    num_classes = 10 if config.data.dataset.lower() in {"cifar10", "synthetic"} else 100
+    dataset = config.data.dataset.lower()
+
+    def step(task_state, policy_state, sampler_probs, train_batch, val_batch, rng):
+        del sampler_probs, val_batch
+        rng_crop, rng_cutout, rng_dropout = jax.random.split(rng, 3)
+        images = random_flip_crop(train_batch["image"], rng_crop)
+        images = cutout(images, rng_cutout, config.augment.cutout_size)
+        labels = train_batch["label"]
+
+        def task_loss_fn(params):
+            (logits), new_state = model.apply(
+                {"params": params, "batch_stats": task_state.batch_stats},
+                normalize_images(images, dataset),
+                train=True,
+                return_features=False,
+                mutable=["batch_stats"],
+                rngs={"dropout": rng_dropout},
+            )
+            losses = cross_entropy_loss(
+                logits,
+                labels,
+                num_classes=num_classes,
+                label_smoothing=config.optim.label_smoothing,
+            )
+            return jnp.mean(losses), (logits, new_state["batch_stats"])
+
+        (task_loss, (logits, new_batch_stats)), task_grads = jax.value_and_grad(
+            task_loss_fn,
+            has_aux=True,
+        )(task_state.params)
+        task_grads = jax.lax.pmean(task_grads, axis_name)
+        new_batch_stats = jax.lax.pmean(new_batch_stats, axis_name)
+        new_task_state = task_state.apply_gradients(
+            grads=task_grads,
+            batch_stats=new_batch_stats,
+        )
+        zeros = jnp.zeros((NUM_OPS, NUM_OPS), dtype=jnp.float32)
+        metrics = {
+            "task_loss": jax.lax.pmean(task_loss, axis_name),
+            "policy_loss": jnp.asarray(0.0, dtype=jnp.float32),
+            "train_top1": jax.lax.pmean(topk_accuracy(logits, labels, k=1), axis_name),
+            "train_top5": jax.lax.pmean(topk_accuracy(logits, labels, k=5), axis_name),
+            "mean_policy_weight": jnp.asarray(0.0, dtype=jnp.float32),
+            "inner_lr": jnp.asarray(0.0, dtype=jnp.float32),
+        }
+        return new_task_state, policy_state, metrics, zeros, zeros
+
+    return jax.pmap(step, axis_name=axis_name)
+
+
+def _create_eval_step(model, config: Config, *, axis_name: str):
     num_classes = 10 if config.data.dataset.lower() in {"cifar10", "synthetic"} else 100
     dataset = config.data.dataset.lower()
 
@@ -399,6 +477,7 @@ def _update_sampler_probs(history: list[np.ndarray], epsilon: float) -> np.ndarr
 def train_and_evaluate(config: Config) -> None:
     if config.system.init_distributed:
         jax.distributed.initialize()
+    competitor = get_competitor(config.competitor.name)
 
     dataset = load_cifar_dataset(
         config.data.dataset,
@@ -423,7 +502,13 @@ def train_and_evaluate(config: Config) -> None:
         steps_per_epoch,
         axis_name=axis_name,
     )
-    train_step = _create_train_step(model, policy, config, axis_name=axis_name)
+    train_step = _create_train_step(
+        model,
+        policy,
+        config,
+        competitor=competitor,
+        axis_name=axis_name,
+    )
     eval_step = _create_eval_step(model, config, axis_name=axis_name)
 
     task_state = jax_utils.replicate(task_state)
@@ -442,7 +527,8 @@ def train_and_evaluate(config: Config) -> None:
     step_rng = jax.random.PRNGKey(config.system.seed)
     sampler_history: list[np.ndarray] = []
     _host0_print(
-        f"Starting MetaAugment on {config.data.dataset}: "
+        f"Starting competitor={competitor.name} model={config.model.architecture} "
+        f"on {config.data.dataset}: "
         f"{dataset.train_size} train, {dataset.val_size} val, {dataset.test_size} test, "
         f"{device_count} local device(s)."
     )
@@ -489,13 +575,14 @@ def train_and_evaluate(config: Config) -> None:
                     f"inner_lr={float(host_metrics['inner_lr']):.5f}"
                 )
 
-        sampler_history.append(np.stack([epoch_pair_sums, epoch_pair_counts], axis=-1))
-        max_history = config.augment.sampler_history_epochs
-        if len(sampler_history) > max_history:
-            sampler_history = sampler_history[-max_history:]
-        if epoch % config.augment.sampler_update_epochs == 0:
-            updated = _update_sampler_probs(sampler_history, config.augment.epsilon)
-            sampler_probs = jax_utils.replicate(jnp.asarray(updated))
+        if competitor.uses_sampler:
+            sampler_history.append(np.stack([epoch_pair_sums, epoch_pair_counts], axis=-1))
+            max_history = config.augment.sampler_history_epochs
+            if len(sampler_history) > max_history:
+                sampler_history = sampler_history[-max_history:]
+            if epoch % config.augment.sampler_update_epochs == 0:
+                updated = _update_sampler_probs(sampler_history, config.augment.epsilon)
+                sampler_probs = jax_utils.replicate(jnp.asarray(updated))
 
         mean_metrics = {
             key: float(np.mean([np.asarray(metrics[key]) for metrics in train_metrics]))

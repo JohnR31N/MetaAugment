@@ -1,27 +1,27 @@
 competitor:
   name: metaaugment
 data:
-  dataset: synthetic
+  dataset: cifar10
   data_dir: data
-  val_size: 32
-  batch_size: 8
-  eval_batch_size: 8
+  val_size: 1000
+  batch_size: 128
+  eval_batch_size: 256
   seed: 0
 model:
-  architecture: wide_resnet
-  depth: 10
+  architecture: preact_resnet
+  depth: 110
   width: 1
   dropout_rate: 0.0
 augment:
-  cutout_size: 8
+  cutout_size: 16
   epsilon: 0.1
   num_transforms_per_sample: 1
   sampler_update_epochs: 1
-  sampler_history_epochs: 1
-  translate_const: 4.0
+  sampler_history_epochs: 50
+  translate_const: 10.0
 optim:
-  epochs: 1
-  task_learning_rate: 0.01
+  epochs: 600
+  task_learning_rate: 0.1
   policy_learning_rate: 0.001
   inner_learning_rate: 0.01
   learn_inner_learning_rate: false
@@ -31,11 +31,11 @@ optim:
   warmup_epochs: 0
   max_grad_norm: 0.0
 system:
-  workdir: runs/smoke
+  workdir: runs/cifar10_preact_resnet110_metaaugment
   seed: 0
   use_pmap: true
   init_distributed: false
-  log_every: 1
+  log_every: 50
   eval_every_epochs: 1
-  save_every_epochs: 1
-  keep_checkpoints: 1
+  save_every_epochs: 10
+  keep_checkpoints: 3

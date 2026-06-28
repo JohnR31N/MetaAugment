@@ -19,9 +19,15 @@ class DataConfig:
 
 @dataclass(frozen=True)
 class ModelConfig:
+    architecture: str = "wide_resnet"
     depth: int = 28
     width: int = 10
     dropout_rate: float = 0.0
+
+
+@dataclass(frozen=True)
+class CompetitorConfig:
+    name: str = "metaaugment"
 
 
 @dataclass(frozen=True)
@@ -62,6 +68,7 @@ class SystemConfig:
 
 @dataclass(frozen=True)
 class Config:
+    competitor: CompetitorConfig = CompetitorConfig()
     data: DataConfig = DataConfig()
     model: ModelConfig = ModelConfig()
     augment: AugmentConfig = AugmentConfig()

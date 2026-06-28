@@ -1,5 +1,5 @@
 competitor:
-  name: metaaugment
+  name: baseline
 data:
   dataset: synthetic
   data_dir: data
@@ -31,7 +31,7 @@ optim:
   warmup_epochs: 0
   max_grad_norm: 0.0
 system:
-  workdir: runs/smoke
+  workdir: runs/smoke_baseline
   seed: 0
   use_pmap: true
   init_distributed: false

@@ -9,6 +9,7 @@ for Google Cloud TPU VMs via JAX/XLA.
 ## What is implemented
 
 - WRN-28-10 task network with shared features for the policy network.
+- CIFAR-style PreAct ResNet support through the same task-network interface.
 - The 14 AutoAugment/RandAugment-style image operations used by MetaAugment.
 - 28-dimensional transformation embeddings.
 - Policy MLP with two 100-unit branches and sigmoid weights.
@@ -67,6 +68,37 @@ Train CIFAR-100:
 python -m meta_augment.cli.train --config configs/cifar100_wrn28_10_metaaugment.yaml
 ```
 
+Run the standard crop/flip/cutout baseline competitor:
+
+```bash
+python -m meta_augment.cli.train --config configs/smoke_baseline.yaml
+python -m meta_augment.cli.train --config configs/cifar10_wrn28_10_baseline.yaml
+python -m meta_augment.cli.train --config configs/cifar100_wrn28_10_baseline.yaml
+```
+
+Run the PreAct ResNet smoke test:
+
+```bash
+python -m meta_augment.cli.train --config configs/smoke_preact_resnet.yaml
+```
+
+Train PreActResNet-110 on CIFAR:
+
+```bash
+python -m meta_augment.cli.train --config configs/cifar10_preact_resnet110_metaaugment.yaml
+python -m meta_augment.cli.train --config configs/cifar100_preact_resnet110_metaaugment.yaml
+```
+
+You can also override the model from the CLI:
+
+```bash
+python -m meta_augment.cli.train \
+  --config configs/cifar10_wrn28_10_metaaugment.yaml \
+  --model-architecture preact_resnet \
+  --model-depth 110 \
+  --model-width 1
+```
+
 ## Google Cloud TPU VM
 
 Create a TPU VM with a recent JAX-compatible image, SSH in, clone this repo,
@@ -100,6 +132,9 @@ distributed automatically.
 - By default only the latest 3 checkpoints are kept to avoid filling TPU VM
   local disks. Use `--keep-checkpoints 1` for short validation runs or set
   `system.keep_checkpoints: 0` to skip checkpoint payloads.
+- Experiment configs include a `competitor.name` field. The current registered
+  competitors are `metaaugment` and `baseline`; this keeps MetaAugment as a
+  benchmark competitor entry instead of baking it into model configuration.
 - `sampler_probs.npy` stores the final learned 14 x 14 transformation
   distribution.
 - The CPU requirement uses `jax[cpu]`; on TPU VMs install `jax[tpu]` with the
