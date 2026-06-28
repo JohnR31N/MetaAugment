@@ -16,9 +16,9 @@ model:
   width: 1
   dropout_rate: 0.0
 augment:
-  # basic_aug=true: random crop/flip. Baseline also uses the same cutout size
-  # as the MetaAug competitor config for an apples-to-apples table row.
-  cutout_size: 16
+  # basic_aug=true in the target recipe is random crop/flip only.
+  cutout_size: 0
+  basic_aug_padding: reflect
   epsilon: 0.1
   num_transforms_per_sample: 1
   sampler_update_epochs: 1
@@ -42,5 +42,7 @@ system:
   init_distributed: false
   log_every: 50
   eval_every_epochs: 1
+  eval_on_test_each_epoch: false
+  final_test: true
   save_every_epochs: 50
   keep_checkpoints: 1

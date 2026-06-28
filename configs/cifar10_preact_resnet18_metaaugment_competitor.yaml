@@ -16,8 +16,9 @@ model:
   width: 1
   dropout_rate: 0.0
 augment:
-  # basic_aug=true is random crop/flip; MetaAugment adds learned sampled ops.
-  cutout_size: 16
+  # basic_aug=true in the target recipe is random crop/flip only.
+  cutout_size: 0
+  basic_aug_padding: reflect
   epsilon: 0.1
   num_transforms_per_sample: 1
   sampler_update_epochs: 1
@@ -41,5 +42,7 @@ system:
   init_distributed: false
   log_every: 50
   eval_every_epochs: 1
+  eval_on_test_each_epoch: false
+  final_test: true
   save_every_epochs: 50
   keep_checkpoints: 1

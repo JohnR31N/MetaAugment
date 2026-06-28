@@ -33,6 +33,7 @@ class CompetitorConfig:
 @dataclass(frozen=True)
 class AugmentConfig:
     cutout_size: int = 16
+    basic_aug_padding: str = "constant"
     epsilon: float = 0.1
     num_transforms_per_sample: int = 1
     sampler_update_epochs: int = 1
@@ -62,6 +63,8 @@ class SystemConfig:
     init_distributed: bool = False
     log_every: int = 50
     eval_every_epochs: int = 1
+    eval_on_test_each_epoch: bool = True
+    final_test: bool = True
     save_every_epochs: int = 10
     keep_checkpoints: int = 3
 

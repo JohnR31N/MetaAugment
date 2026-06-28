@@ -202,6 +202,7 @@ def _create_metaaugment_train_step(
             sampler_probs,
             num_transforms_per_sample=config.augment.num_transforms_per_sample,
             cutout_size=config.augment.cutout_size,
+            padding_mode=config.augment.basic_aug_padding,
             translate_const=config.augment.translate_const,
         )
 
@@ -299,7 +300,11 @@ def _create_baseline_train_step(model, config: Config, *, axis_name: str):
     def step(task_state, policy_state, sampler_probs, train_batch, val_batch, rng):
         del sampler_probs, val_batch
         rng_crop, rng_cutout, rng_dropout = jax.random.split(rng, 3)
-        images = random_flip_crop(train_batch["image"], rng_crop)
+        images = random_flip_crop(
+            train_batch["image"],
+            rng_crop,
+            padding_mode=config.augment.basic_aug_padding,
+        )
         images = cutout(images, rng_cutout, config.augment.cutout_size)
         labels = train_batch["label"]
 
@@ -596,7 +601,11 @@ def train_and_evaluate(config: Config) -> None:
             f"top5={mean_metrics['train_top5']:.4f}"
         )
 
-        if epoch % config.system.eval_every_epochs == 0:
+        should_eval = epoch % config.system.eval_every_epochs == 0
+        should_test = config.system.eval_on_test_each_epoch or (
+            config.system.final_test and epoch == config.optim.epochs
+        )
+        if should_eval:
             val_metrics = _evaluate(
                 eval_step,
                 task_state,
@@ -606,6 +615,11 @@ def train_and_evaluate(config: Config) -> None:
                 rng,
                 device_count,
             )
+            message += (
+                f" val_top1={val_metrics['top1']:.4f} "
+                f"val_top5={val_metrics['top5']:.4f}"
+            )
+        if should_test:
             test_metrics = _evaluate(
                 eval_step,
                 task_state,
@@ -616,9 +630,7 @@ def train_and_evaluate(config: Config) -> None:
                 device_count,
             )
             message += (
-                f" val_top1={val_metrics['top1']:.4f} "
-                f"val_top5={val_metrics['top5']:.4f} "
-                f"test_top1={test_metrics['top1']:.4f} "
+                f" test_top1={test_metrics['top1']:.4f} "
                 f"test_top5={test_metrics['top5']:.4f}"
             )
         _host0_print(message)

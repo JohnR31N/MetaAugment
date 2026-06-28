@@ -291,12 +291,27 @@ def apply_op(
     return lax.switch(op_id, branches, image, magnitude, key)
 
 
-def random_flip_crop(images: jnp.ndarray, key: jnp.ndarray, padding: int = 4) -> jnp.ndarray:
+def random_flip_crop(
+    images: jnp.ndarray,
+    key: jnp.ndarray,
+    padding: int = 4,
+    padding_mode: str = "constant",
+) -> jnp.ndarray:
     keys = random.split(key, images.shape[0])
+    if padding_mode not in {"constant", "reflect"}:
+        raise ValueError(f"Unsupported padding mode: {padding_mode}")
 
     def transform(image: jnp.ndarray, image_key: jnp.ndarray) -> jnp.ndarray:
         y_key, x_key, flip_key = random.split(image_key, 3)
-        padded = jnp.pad(image, ((padding, padding), (padding, padding), (0, 0)), constant_values=0.5)
+        if padding_mode == "reflect":
+            padded = jnp.pad(image, ((padding, padding), (padding, padding), (0, 0)), mode="reflect")
+        else:
+            padded = jnp.pad(
+                image,
+                ((padding, padding), (padding, padding), (0, 0)),
+                mode="constant",
+                constant_values=0.5,
+            )
         y = random.randint(y_key, (), 0, padding * 2 + 1)
         x = random.randint(x_key, (), 0, padding * 2 + 1)
         cropped = lax.dynamic_slice(padded, (y, x, 0), image.shape)
@@ -332,10 +347,11 @@ def apply_metaaugment(
     *,
     num_transforms_per_sample: int,
     cutout_size: int,
+    padding_mode: str,
     translate_const: float,
 ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
     key_base, key_sample, key_op1, key_op2, key_cutout = random.split(key, 5)
-    base_images = random_flip_crop(images, key_base)
+    base_images = random_flip_crop(images, key_base, padding_mode=padding_mode)
     batch_size = images.shape[0]
     op1, op2, mag1, mag2, pair_ids = sample_transformations(
         key_sample, sampler_probs, batch_size, num_transforms_per_sample
