@@ -1,0 +1,47 @@
+# Aligned competitor-row config for:
+# dataset=cifar100, model=preact_resnet18, method=metaaugment.
+competitor:
+  name: metaaugment
+data:
+  dataset: cifar100
+  data_dir: ./data
+  # Matches validation_split: 0.1 on CIFAR-100's 50k train split.
+  val_size: 5000
+  batch_size: 128
+  eval_batch_size: 256
+  seed: 0
+model:
+  architecture: preact_resnet18
+  depth: 18
+  width: 1
+  dropout_rate: 0.0
+augment:
+  cutout_size: 0
+  basic_aug_padding: reflect
+  epsilon: 0.1
+  num_transforms_per_sample: 1
+  sampler_update_epochs: 1
+  sampler_history_epochs: 20
+  translate_const: 10.0
+optim:
+  epochs: 200
+  task_learning_rate: 0.1
+  policy_learning_rate: 0.001
+  inner_learning_rate: 0.01
+  learn_inner_learning_rate: false
+  momentum: 0.9
+  weight_decay: 0.0001
+  label_smoothing: 0.0
+  warmup_epochs: 0
+  max_grad_norm: 0.0
+system:
+  workdir: ./outputs/cifar100_preact_resnet18_metaaugment
+  seed: 0
+  use_pmap: true
+  init_distributed: false
+  log_every: 50
+  eval_every_epochs: 1
+  eval_on_test_each_epoch: false
+  final_test: true
+  save_every_epochs: 50
+  keep_checkpoints: 1

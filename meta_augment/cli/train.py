@@ -23,6 +23,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--epochs", type=int, default=None, help="Override optim.epochs.")
     parser.add_argument("--batch-size", type=int, default=None, help="Override data.batch_size.")
     parser.add_argument("--eval-batch-size", type=int, default=None, help="Override data.eval_batch_size.")
+    parser.add_argument("--seed", type=int, default=None, help="Override data.seed and system.seed.")
     parser.add_argument("--save-every-epochs", type=int, default=None, help="Override system.save_every_epochs.")
     parser.add_argument("--keep-checkpoints", type=int, default=None, help="How many checkpoints to keep.")
     parser.add_argument("--no-pmap", action="store_true", help="Use one local device only.")
@@ -56,6 +57,9 @@ def main() -> None:
         config = override_config(config, "data.batch_size", args.batch_size)
     if args.eval_batch_size is not None:
         config = override_config(config, "data.eval_batch_size", args.eval_batch_size)
+    if args.seed is not None:
+        config = override_config(config, "data.seed", args.seed)
+        config = override_config(config, "system.seed", args.seed)
     if args.save_every_epochs is not None:
         config = override_config(config, "system.save_every_epochs", args.save_every_epochs)
     if args.keep_checkpoints is not None:
