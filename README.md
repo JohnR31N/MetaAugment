@@ -97,6 +97,9 @@ distributed automatically.
 ## Notes
 
 - Checkpoints are written as Python pickles in `workdir`.
+- By default only the latest 3 checkpoints are kept to avoid filling TPU VM
+  local disks. Use `--keep-checkpoints 1` for short validation runs or set
+  `system.keep_checkpoints: 0` to skip checkpoint payloads.
 - `sampler_probs.npy` stores the final learned 14 x 14 transformation
   distribution.
 - The CPU requirement uses `jax[cpu]`; on TPU VMs install `jax[tpu]` with the

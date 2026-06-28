@@ -57,6 +57,7 @@ class SystemConfig:
     log_every: int = 50
     eval_every_epochs: int = 1
     save_every_epochs: int = 10
+    keep_checkpoints: int = 3
 
 
 @dataclass(frozen=True)

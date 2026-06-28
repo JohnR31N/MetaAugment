@@ -301,6 +301,16 @@ def _save_checkpoint(
     if jax.process_index() != 0:
         return
     workdir.mkdir(parents=True, exist_ok=True)
+    keep_checkpoints = config.system.keep_checkpoints
+    if keep_checkpoints < 0:
+        raise ValueError("system.keep_checkpoints must be non-negative")
+    _prune_checkpoints(workdir, max(0, keep_checkpoints - 1))
+
+    with (workdir / "config.json").open("w", encoding="utf-8") as handle:
+        json.dump(to_dict(config), handle, indent=2)
+    if keep_checkpoints == 0:
+        return
+
     payload = {
         "epoch": epoch,
         "task": {
@@ -317,10 +327,26 @@ def _save_checkpoint(
         "sampler_probs": jax.device_get(sampler_probs),
         "config": to_dict(config),
     }
-    with (workdir / f"checkpoint_{epoch:04d}.pkl").open("wb") as handle:
-        pickle.dump(payload, handle)
-    with (workdir / "config.json").open("w", encoding="utf-8") as handle:
-        json.dump(to_dict(config), handle, indent=2)
+    checkpoint_path = workdir / f"checkpoint_{epoch:04d}.pkl"
+    tmp_path = checkpoint_path.with_suffix(".pkl.tmp")
+    try:
+        with tmp_path.open("wb") as handle:
+            pickle.dump(payload, handle)
+        tmp_path.replace(checkpoint_path)
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()
+    _prune_checkpoints(workdir, keep_checkpoints)
+
+
+def _prune_checkpoints(workdir: Path, keep: int) -> None:
+    checkpoints = sorted(workdir.glob("checkpoint_*.pkl"))
+    if keep <= 0:
+        stale = checkpoints
+    else:
+        stale = checkpoints[:-keep]
+    for checkpoint in stale:
+        checkpoint.unlink()
 
 
 def _evaluate(
